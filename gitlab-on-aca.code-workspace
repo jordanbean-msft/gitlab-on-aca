@@ -1,0 +1,134 @@
+{
+  "folders": [
+    {
+      "name": "Root",
+      "path": "."
+    },
+    {
+      "name": "Infrastructure",
+      "path": "infra"
+    },
+    {
+      "name": "Source",
+      "path": "src"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/__pycache__": true,
+      "**/.git": true,
+      "**/.pytest_cache": true,
+      "**/.terraform": true,
+      "**/node_modules": true
+    },
+    "terraform.languageServer": {
+      "enable": true,
+      "args": []
+    },
+    "terraform.validation.enableEnhancedValidation": true,
+    "[terraform]": {
+      "editor.defaultFormatter": "hashicorp.terraform",
+      "editor.formatOnSave": true,
+      "editor.tabSize": 2
+    },
+    "[terraform-vars]": {
+      "editor.defaultFormatter": "hashicorp.terraform",
+      "editor.formatOnSave": true,
+      "editor.tabSize": 2
+    },
+    "files.associations": {
+      "*.tfvars": "terraform-vars",
+      "*.tf": "terraform"
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "hashicorp.terraform",
+      "ms-azuretools.vscode-azureterraform",
+      "ms-azuretools.azure-dev",
+      "ms-vscode.azurecli",
+      "ms-azuretools.vscode-docker"
+    ]
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": []
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "terraform: init",
+        "type": "shell",
+        "command": "terraform init",
+        "options": {
+          "cwd": "${workspaceFolder:Infrastructure}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "terraform: validate",
+        "type": "shell",
+        "command": "terraform validate",
+        "options": {
+          "cwd": "${workspaceFolder:Infrastructure}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "terraform: plan",
+        "type": "shell",
+        "command": "terraform plan -var-file=terraform.tfvars",
+        "options": {
+          "cwd": "${workspaceFolder:Infrastructure}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "terraform: apply",
+        "type": "shell",
+        "command": "terraform apply -var-file=terraform.tfvars",
+        "options": {
+          "cwd": "${workspaceFolder:Infrastructure}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "azd: up",
+        "type": "shell",
+        "command": "azd up",
+        "options": {
+          "cwd": "${workspaceFolder:Root}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "azd: provision",
+        "type": "shell",
+        "command": "azd provision",
+        "options": {
+          "cwd": "${workspaceFolder:Root}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "azd: deploy",
+        "type": "shell",
+        "command": "azd deploy",
+        "options": {
+          "cwd": "${workspaceFolder:Root}"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "azd: down",
+        "type": "shell",
+        "command": "azd down",
+        "options": {
+          "cwd": "${workspaceFolder:Root}"
+        },
+        "problemMatcher": []
+      }
+    ]
+  }
+}

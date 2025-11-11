@@ -1,0 +1,30 @@
+# Example tfvars for GitLab on Azure Container Apps (using existing network)
+
+subscription_id              = "00000000-0000-0000-0000-000000000000"
+resource_group_name          = "rg-gitlab"
+location                     = "eastus"
+# Leave blank to auto-generate; optionally override
+unique_suffix                = ""
+
+# Existing network objects (supply full subnet resource IDs)
+container_apps_subnet_id     = "/subscriptions/<sub>/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-hub/subnets/snet-containerapps"
+private_endpoints_subnet_id  = "/subscriptions/<sub>/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-hub/subnets/snet-private-endpoints"
+
+# GitLab configuration
+gitlab_hostname              = "gitlab.contoso.com"
+# For production use Key Vault; here placeholders
+gitlab_root_password         = "CHANGE-ME"
+gitlab_runner_token          = "RUNNER-TOKEN"
+
+# Optional shared tags
+# tags = { environment = "dev" owner = "team-devops" }
+
+# Storage replication choice (SKU tiers hard-coded where required)
+storage_account_replication_type = "LRS"
+
+# Azure Files shares for GitLab (name, quota in GiB, container mount path)
+file_shares = [
+  { name = "gitlab-config", quota = 100, path = "/etc/gitlab" },
+  { name = "gitlab-data",   quota = 500, path = "/var/opt/gitlab" },
+  { name = "gitlab-logs",   quota = 100, path = "/var/log/gitlab" }
+]
