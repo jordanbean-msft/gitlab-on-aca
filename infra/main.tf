@@ -89,14 +89,27 @@ resource "azurerm_role_assignment" "terraform_kv_admin" {
   principal_id         = data.azurerm_client_config.current.object_id
 }
 
+# Grant azd executing principal Key Vault Administrator
+resource "azurerm_role_assignment" "azd_kv_admin" {
+  scope                = module.key_vault.id
+  role_definition_name = "Key Vault Administrator"
+  principal_id         = var.azure_principal_id
+  depends_on           = [module.key_vault]
+}
+
+# Wait for RBAC permissions to propagate
+resource "time_sleep" "wait_for_rbac" {
+  create_duration = "60s"
+  depends_on = [azurerm_role_assignment.terraform_kv_admin, azurerm_role_assignment.azd_kv_admin]
+}
+
 # Store GitLab secrets in Key Vault
 resource "azurerm_key_vault_secret" "gitlab_root_password" {
   name         = "gitlab-root-password"
   value        = var.gitlab_root_password
   key_vault_id = module.key_vault.id
   content_type = "password"
-
-  depends_on = [azurerm_role_assignment.terraform_kv_admin]
+  depends_on = [time_sleep.wait_for_rbac]
 }
 
 resource "azurerm_key_vault_secret" "gitlab_runner_token" {
@@ -104,8 +117,7 @@ resource "azurerm_key_vault_secret" "gitlab_runner_token" {
   value        = var.gitlab_runner_token
   key_vault_id = module.key_vault.id
   content_type = "token"
-
-  depends_on = [azurerm_role_assignment.terraform_kv_admin]
+  depends_on = [time_sleep.wait_for_rbac]
 }
 
 # Grant Container App managed identity access to read secrets
@@ -177,6 +189,8 @@ module "container_app_environment" {
   resource_group_name        = var.resource_group_name
   log_analytics_workspace_id = module.log_analytics.id
   infrastructure_subnet_id   = var.container_apps_subnet_id
+  workload_profile_type      = var.workload_profile_type
+  workload_profile_name      = var.workload_profile_name
   tags                       = local.base_tags
 }
 

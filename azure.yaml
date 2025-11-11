@@ -2,4 +2,6 @@ name: gitlab-on-aca
 metadata:
   template: gitlab-on-aca@0.0.1-alpha
 
-services: {}
+infra:
+  provider: terraform
+  path: infra

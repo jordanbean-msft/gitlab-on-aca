@@ -11,4 +11,8 @@ resource "azurerm_private_endpoint" "main" {
     subresource_names              = var.subresource_names
     is_manual_connection           = false
   }
+
+  lifecycle {
+    ignore_changes = [private_dns_zone_group]
+  }
 }

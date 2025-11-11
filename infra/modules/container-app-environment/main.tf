@@ -7,8 +7,9 @@ resource "azurerm_container_app_environment" "main" {
   internal_load_balancer_enabled = true
 
   workload_profile {
-    name                  = "gitlab-dedicated"
-    workload_profile_type = "Dedicated"
+    # Name must be <16 characters; provided via variable
+    name                  = var.workload_profile_name
+    workload_profile_type = var.workload_profile_type
     minimum_count         = 1
     maximum_count         = 3
   }

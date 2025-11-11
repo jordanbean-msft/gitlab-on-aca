@@ -49,6 +49,33 @@ variable "storage_account_replication_type" {
   type        = string
 }
 
+variable "workload_profile_type" {
+  description = "Container Apps Environment workload profile type (Consumption, D4, D8, D16, D32, E4, E8, E16, E32)"
+  type        = string
+  default     = "D4"
+
+  validation {
+    condition     = contains(["Consumption", "D4", "D8", "D16", "D32", "E4", "E8", "E16", "E32"], var.workload_profile_type)
+    error_message = "workload_profile_type must be one of: Consumption, D4, D8, D16, D32, E4, E8, E16, E32"
+  }
+}
+
+variable "workload_profile_name" {
+  description = "Container Apps workload profile name (<16 chars). Default shortened to meet naming rules."
+  type        = string
+  default     = "gitlabded"
+
+  validation {
+    condition     = length(var.workload_profile_name) < 16
+    error_message = "workload_profile_name must be less than 16 characters."
+  }
+}
+
+variable "azure_principal_id" {
+  description = "Principal ID (object ID) of identity running azd (AZURE_PRINCIPAL_ID) for Key Vault RBAC grant"
+  type        = string
+}
+
 variable "file_shares" {
   description = "List of Azure Files shares to create with name, quota (GiB), and container mount path"
   type = list(object({
