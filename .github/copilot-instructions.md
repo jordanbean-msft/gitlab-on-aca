@@ -149,13 +149,7 @@ Terraform directly provisions all resources; azd may be leveraged later for addi
 
 ### GitLab Container App
 
-**Minimum (Development)**:
-
-- CPU: 2.0 cores, Memory: 4Gi, Replicas: 1
-
-**Production**:
-
-- CPU: 4.0 cores, Memory: 8Gi, Replicas: 2-3 (HA)
+- CPU: 4.0 cores, Memory: 8Gi, Replicas: 1 (only a single replica supported for GitLab EE in this design)
 
 ### Azure Files Storage
 
@@ -169,10 +163,11 @@ Terraform directly provisions all resources; azd may be leveraged later for addi
 
 ### Container Apps Environment
 
-- Subnet: /23 minimum (512 IPs)
+- Subnet: /27 minimum (512 IPs)
 - Dedicated workload profile REQUIRED for VNet integration & NFS performance
 - Workload profile name must be <16 characters
 - Workload profile type: D4, D8, D16, D32, E4, E8, E16, E32, or Consumption
+- **CRITICAL**: Container app resource MUST set `workload_profile_name` to bind to dedicated profile (defaults to Consumption if omitted)
 
 ### Key Vault, ACR, Storage Account Configuration
 
@@ -355,7 +350,7 @@ When assisting:
 - **Secrets**: Always via Key Vault secret references (`secret_name`), never plain env
 - **Logging**: Log Analytics + App Insights mandatory; no toggle
 - **Storage Access**: Account keys for Container Apps (identity-based mounting not supported)
-- **Workload Profile**: Name <16 chars; type must be valid SKU (D4/D8/D16/D32/E4/E8/E16/E32/Consumption)
+- **Workload Profile**: Name <16 chars; type must be valid SKU (D4/D8/D16/D32/E4/E8/E16/E32/Consumption); **container app must explicitly set `workload_profile_name` in resource block**
 - **RBAC**: `AZURE_PRINCIPAL_ID` always provided via azd environment for Key Vault Administrator role
 - **NFS Storage**: Use `nfs_server_url`, set `enabled_protocol = "NFS"` on shares, omit `access_key`
 - **Container Port & Probes**: `target_port = 8080`; probes (`/-/health`, `/-/readiness`, `/-/liveness`) must reference 8080. Do NOT revert to 80.

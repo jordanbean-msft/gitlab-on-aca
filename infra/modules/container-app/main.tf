@@ -23,6 +23,7 @@ resource "azurerm_container_app" "main" {
   resource_group_name          = var.resource_group_name
   container_app_environment_id = var.environment_id
   revision_mode                = "Single"
+  workload_profile_name        = var.workload_profile_name
   tags                         = var.tags
   # Ensure environment storage (NFS) exists before creating the app
   depends_on = [azurerm_container_app_environment_storage.shares]

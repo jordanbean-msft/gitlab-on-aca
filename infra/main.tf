@@ -287,6 +287,7 @@ module "gitlab_app" {
   storage_account_name              = module.storage_account.name
   storage_account_key               = module.storage_account.primary_access_key
   log_analytics_workspace_id        = module.log_analytics.id
+  workload_profile_name             = var.workload_profile_name
   file_shares = [
     for share in var.file_shares : {
       name = share.name

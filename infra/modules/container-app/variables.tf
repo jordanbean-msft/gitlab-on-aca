@@ -65,3 +65,8 @@ variable "use_bootstrap_probes" {
   default     = true
   description = "If true, use extended, lenient probe timings to allow initial GitLab Omnibus convergence without premature restarts. Switch to false after first successful initialization for tighter health checks."
 }
+
+variable "workload_profile_name" {
+  description = "Name of the workload profile to assign this container app to (must match environment workload profile)"
+  type        = string
+}
