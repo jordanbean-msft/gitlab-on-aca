@@ -21,6 +21,22 @@ variable "key_vault_secret_id_token" {
   type        = string
   description = "Key Vault secret ID for GitLab runner token"
 }
+variable "postgresql_host" {
+  type        = string
+  description = "PostgreSQL server FQDN"
+}
+variable "postgresql_database" {
+  type        = string
+  description = "PostgreSQL database name"
+}
+variable "key_vault_secret_id_db_username" {
+  type        = string
+  description = "Key Vault secret ID for PostgreSQL admin username"
+}
+variable "key_vault_secret_id_db_password" {
+  type        = string
+  description = "Key Vault secret ID for PostgreSQL admin password"
+}
 variable "storage_account_name" { type = string }
 variable "storage_account_key" {
   type        = string

@@ -1,10 +1,11 @@
 resource "azurerm_container_registry" "main" {
-  name                = var.name
-  resource_group_name = var.resource_group_name
-  location            = var.location
-  sku                 = "Premium" # Hard-coded: Private Endpoint support requires Premium tier
-  admin_enabled       = false
-  tags                = var.tags
+  name                          = var.name
+  resource_group_name           = var.resource_group_name
+  location                      = var.location
+  sku                           = "Premium" # Hard-coded: Private Endpoint support requires Premium tier
+  admin_enabled                 = false
+  public_network_access_enabled = false
+  tags                          = var.tags
 }
 
 resource "azurerm_role_assignment" "acr_pull" {

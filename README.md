@@ -1,8 +1,8 @@
 # GitLab on Azure Container Apps
 
-This repository provisions a fully private Azure Container Apps deployment running the official `gitlab/gitlab-ee` image. All Azure resources are created **exclusively via Terraform** which is orchestrated by the Azure Developer CLI (`azd`) hooks defined in `azure.yaml`.
+This repository provisions a fully private Azure Container Apps deployment running the official `gitlab/gitlab-ee` image. All Azure resources are created **exclusively via Terraform**.
 
-> Infrastructure includes: Container Apps Environment (VNet integrated + Dedicated workload profile), GitLab Container App, Azure Files (NFS) share mounts, ACR (Premium, private endpoint), Key Vault, Log Analytics, Application Insights, Managed Identity, Private Endpoints (Storage, ACR, Key Vault), and required NSGs. Private DNS zones are **NOT** manually created (auto-managed by Azure Policy DINE).
+> Deploys GitLab Enterprise Edition on Azure Container Apps with VNet integration, private networking, persistent NFS storage, and supporting Azure services (ACR, Key Vault, monitoring). All PaaS services use private endpoints.
 
 ## Architecture
 
@@ -19,7 +19,7 @@ You must have the following before provisioning:
 - Azure subscription
 - **Existing Resource Group** (referenced in tfvars; Terraform will not create it)
 - **Existing Azure Storage Account + Blob Container** for Terraform remote state (configure during `terraform init`)
-- Existing VNet with: Container Apps subnet & Private Endpoints subnet (resource IDs required)
+- Existing VNet with: Container Apps subnet (/27 minimum) & Private Endpoints subnet (resource IDs required)
 - [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
 - [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/) (`azd`) v1.0+ (optional)
 - Terraform v1.10.x
@@ -39,7 +39,18 @@ These resource IDs are referenced (not created) by Terraform via your `terraform
    ```bash
    cp infra/terraform.tfvars.example infra/terraform.tfvars
    ```
-2. Edit `infra/terraform.tfvars` and set: subscription id, resource group name (must exist), location, network resource IDs, GitLab hostname, and secrets (use Key Vault in production; plain text only for initial testing).
+2. Edit `infra/terraform.tfvars` to configure:
+
+   - Azure subscription and resource group (must pre-exist)
+   - Network resource IDs (existing subnets for Container Apps and Private Endpoints)
+   - GitLab hostname
+   - Workload profile settings
+   - Storage configuration
+   - File share definitions
+   - Initial secrets
+
+   See `infra/terraform.tfvars.example` for complete variable list and descriptions.
+
 3. **Configure remote state backend** (Azure Storage Account):
 
    ```bash
@@ -58,10 +69,9 @@ These resource IDs are referenced (not created) by Terraform via your `terraform
    terraform init  # Will prompt for backend config or use partial config file
    ```
 
-Secrets such as `gitlab_root_password` should ultimately be sourced from Key Vault; the Terraform code already provisions a vault. Replace inline secrets with secure references once initialized.## GitLab Data Persistence
+## Data Persistence
 
-Azure Files NFS share mounts three paths inside the container:
-`/etc/gitlab`, `/var/opt/gitlab`, `/var/log/gitlab` for config, application data (repos), and logs respectively.
+GitLab data is persisted to Azure Files Premium using NFS protocol. Three mount points store configuration, application data (repositories, database), and logs.
 
 ## Provisioning with Terraform
 
@@ -97,11 +107,7 @@ terraform output -json | jq
 terraform output -raw gitlab_url
 ```
 
-During provisioning:
-
-1. Terraform creates Container Apps Environment, GitLab Container App, Azure Files NFS storage, ACR, Key Vault, Log Analytics, Application Insights, Managed Identity, Private Endpoints, and NSGs
-2. Private DNS zones are automatically created by Azure Policy (DINE) — do not create manually
-3. Initial GitLab startup may take 5–10 minutes
+During provisioning, Terraform creates all required Azure resources including networking, storage, compute, and security components. Private DNS zones are automatically managed by Azure Policy. Initial GitLab startup may take 5–10 minutes.
 
 Monitor GitLab initialization:
 
@@ -135,9 +141,12 @@ terraform destroy -var-file=terraform.tfvars
 
 ## Troubleshooting
 
-- Container App failing start: check volume mounts & NFS settings.
-- Private endpoints DNS: rely on Azure Policy DINE (do **not** create zones manually).
-- Slow first boot: GitLab initialization (expected).
+- **Container App not starting**: Check container logs via Azure Portal or `az containerapp logs show`
+- **Access issues**: Verify all required tfvars are set correctly, especially network resource IDs
+- **DNS resolution problems**: Ensure Azure Policy is enabled and wait for automatic DNS zone creation
+- **Slow initialization**: GitLab first start takes 5-10 minutes (expected behavior)
+
+For detailed troubleshooting and configuration specifics, see Terraform module documentation in `infra/modules/`.
 
 ## Links
 

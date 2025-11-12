@@ -120,6 +120,22 @@ resource "azurerm_key_vault_secret" "gitlab_runner_token" {
   depends_on = [time_sleep.wait_for_rbac]
 }
 
+resource "azurerm_key_vault_secret" "postgresql_admin_password" {
+  name         = "postgresql-admin-password"
+  value        = var.postgresql_admin_password
+  key_vault_id = module.key_vault.id
+  content_type = "password"
+  depends_on   = [time_sleep.wait_for_rbac]
+}
+
+resource "azurerm_key_vault_secret" "postgresql_admin_login" {
+  name         = "postgresql-admin-login"
+  value        = var.postgresql_administrator_login
+  key_vault_id = module.key_vault.id
+  content_type = "username"
+  depends_on   = [time_sleep.wait_for_rbac]
+}
+
 # Grant Container App managed identity access to read secrets
 resource "azurerm_role_assignment" "gitlab_app_kv_secrets_user" {
   scope                = module.key_vault.id
@@ -145,6 +161,39 @@ module "file_share" {
   name                 = each.value.name
   storage_account_name = module.storage_account.name
   quota                = each.value.quota
+}
+
+########## PostgreSQL Flexible Server (Public access + Private Endpoint) ##########
+module "postgresql" {
+  source                           = "./modules/postgresql"
+  name                             = "psql-gitlab-pe-${local.unique_suffix}"
+  location                         = var.postgresql_location != "" ? var.postgresql_location : var.location
+  resource_group_name              = var.resource_group_name
+  postgresql_version               = var.postgresql_version
+  public_network_access_enabled    = false
+  administrator_login              = azurerm_key_vault_secret.postgresql_admin_login.value
+  administrator_password           = azurerm_key_vault_secret.postgresql_admin_password.value
+  sku_name                         = var.postgresql_sku_name
+  storage_mb                       = var.postgresql_storage_mb
+  storage_tier                     = var.postgresql_storage_tier
+  backup_retention_days            = var.postgresql_backup_retention_days
+  geo_redundant_backup_enabled     = var.postgresql_geo_redundant_backup_enabled
+  high_availability_mode           = var.postgresql_high_availability_mode
+  zone                             = var.postgresql_zone
+  tags                             = local.base_tags
+}
+
+# Private Endpoint for PostgreSQL Flexible Server (DNS zone auto-managed by Azure Policy DINE)
+module "private_endpoint_postgresql" {
+  source                         = "./modules/private-endpoint"
+  name                           = "pe-psql-${local.unique_suffix}"
+  location                       = var.location
+  resource_group_name            = var.resource_group_name
+  subnet_id                      = var.private_endpoints_subnet_id
+  private_connection_resource_id = module.postgresql.id
+  subresource_names              = ["postgresqlServer"]
+  tags                           = local.base_tags
+  depends_on                     = [module.postgresql]
 }
 
 ########## Private Endpoints ##########
@@ -181,6 +230,18 @@ module "private_endpoint_key_vault" {
   tags                           = local.base_tags
 }
 
+module "private_endpoint_container_app_environment" {
+  source                         = "./modules/private-endpoint"
+  name                           = "pe-cae-${local.unique_suffix}"
+  location                       = var.location
+  resource_group_name            = var.resource_group_name
+  subnet_id                      = var.private_endpoints_subnet_id
+  private_connection_resource_id = module.container_app_environment.id
+  subresource_names              = ["managedEnvironments"]
+  tags                           = local.base_tags
+  depends_on                     = [module.container_app_environment]
+}
+
 ########## Container App Environment ##########
 module "container_app_environment" {
   source                     = "./modules/container-app-environment"
@@ -196,26 +257,30 @@ module "container_app_environment" {
 
 ########## GitLab Container App ##########
 module "gitlab_app" {
-  source                       = "./modules/container-app"
-  name                         = "ca-gitlab-${local.unique_suffix}"
-  resource_group_name          = var.resource_group_name
-  location                     = var.location
-  environment_id               = module.container_app_environment.id
-  image                        = "gitlab/gitlab-ee:latest"
-  cpu                          = 2.0
-  memory                       = "4Gi"
-  min_replicas                 = 1
-  max_replicas                 = 1
-  target_port                  = 80
-  external_enabled             = true
-  registry_server              = module.acr.login_server
-  registry_identity_id         = module.identity.id
-  identity_ids                 = [module.identity.id]
-  gitlab_hostname              = var.gitlab_hostname
-  key_vault_secret_id_password = azurerm_key_vault_secret.gitlab_root_password.id
-  key_vault_secret_id_token    = azurerm_key_vault_secret.gitlab_runner_token.id
-  storage_account_name         = module.storage_account.name
-  storage_account_key          = module.storage_account.primary_access_key
+  source                            = "./modules/container-app"
+  name                              = "ca-gitlab-${local.unique_suffix}"
+  resource_group_name               = var.resource_group_name
+  location                          = var.location
+  environment_id                    = module.container_app_environment.id
+  image                             = "gitlab/gitlab-ee:latest"
+  cpu                               = 2.0
+  memory                            = "4Gi"
+  min_replicas                      = 1
+  max_replicas                      = 1
+  target_port                       = 80
+  external_enabled                  = true
+  registry_server                   = module.acr.login_server
+  registry_identity_id              = module.identity.id
+  identity_ids                      = [module.identity.id]
+  gitlab_hostname                   = var.gitlab_hostname
+  key_vault_secret_id_password      = azurerm_key_vault_secret.gitlab_root_password.id
+  key_vault_secret_id_token         = azurerm_key_vault_secret.gitlab_runner_token.id
+  key_vault_secret_id_db_username   = azurerm_key_vault_secret.postgresql_admin_login.id
+  key_vault_secret_id_db_password   = azurerm_key_vault_secret.postgresql_admin_password.id
+  postgresql_host                   = module.postgresql.fqdn
+  postgresql_database               = module.postgresql.database_name
+  storage_account_name              = module.storage_account.name
+  storage_account_key               = module.storage_account.primary_access_key
   file_shares = [
     for share in var.file_shares : {
       name = share.name
@@ -228,6 +293,8 @@ module "gitlab_app" {
     module.file_share,
     module.private_endpoint_storage_file,
     module.private_endpoint_acr,
+    module.private_endpoint_postgresql,
+    module.postgresql,
     azurerm_role_assignment.gitlab_app_kv_secrets_user
   ]
 }

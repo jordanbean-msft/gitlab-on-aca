@@ -24,6 +24,52 @@ variable "private_endpoints_subnet_id" {
   description = "Existing subnet ID dedicated to Private Endpoints"
   type        = string
 }
+variable "postgresql_admin_password" {
+  description = "PostgreSQL administrator password"
+  type        = string
+  sensitive   = true
+}
+variable "postgresql_version" {
+  description = "PostgreSQL version (16 or 17)"
+  type        = string
+}
+variable "postgresql_administrator_login" {
+  description = "PostgreSQL administrator login name"
+  type        = string
+}
+variable "postgresql_sku_name" {
+  description = "PostgreSQL SKU name (e.g., B_Standard_B2ms, GP_Standard_D4s_v3)"
+  type        = string
+}
+variable "postgresql_storage_mb" {
+  description = "PostgreSQL storage size in MB (minimum 32768 for 32 GB)"
+  type        = number
+}
+variable "postgresql_storage_tier" {
+  description = "PostgreSQL storage performance tier (P4, P6, P10, P15, P20, P30, P40, P50)"
+  type        = string
+}
+variable "postgresql_backup_retention_days" {
+  description = "PostgreSQL backup retention in days"
+  type        = number
+}
+variable "postgresql_geo_redundant_backup_enabled" {
+  description = "Enable geo-redundant backups for PostgreSQL"
+  type        = bool
+}
+variable "postgresql_high_availability_mode" {
+  description = "PostgreSQL high availability mode (Disabled, SameZone, ZoneRedundant)"
+  type        = string
+}
+variable "postgresql_zone" {
+  description = "PostgreSQL availability zone"
+  type        = string
+}
+variable "postgresql_location" {
+  description = "Region for PostgreSQL Flexible Server (defaults to location if empty)"
+  type        = string
+  default     = ""
+}
 variable "gitlab_hostname" {
   description = "Public hostname for GitLab external_url"
   type        = string

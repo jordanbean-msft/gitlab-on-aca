@@ -9,12 +9,26 @@ unique_suffix                = ""
 # Existing network objects (supply full subnet resource IDs)
 container_apps_subnet_id     = "/subscriptions/<sub>/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-hub/subnets/snet-containerapps"
 private_endpoints_subnet_id  = "/subscriptions/<sub>/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-hub/subnets/snet-private-endpoints"
+postgresql_subnet_id         = "/subscriptions/<sub>/resourceGroups/rg-network/providers/Microsoft.Network/virtualNetworks/vnet-hub/subnets/snet-postgresql"
 
 # GitLab configuration
 gitlab_hostname              = "gitlab.contoso.com"
 # For production use Key Vault; here placeholders
 gitlab_root_password         = "CHANGE-ME"
 gitlab_runner_token          = "RUNNER-TOKEN"
+
+# PostgreSQL configuration
+postgresql_admin_password                = "CHANGE-ME-DB-PASSWORD"  # PostgreSQL admin password (remember to change in production)
+postgresql_version                       = "16"                      # PostgreSQL version (16 or 17)
+postgresql_administrator_login           = "psqladmin"               # PostgreSQL admin username
+postgresql_sku_name                      = "B_Standard_B2ms"        # 2 vCPU, 8 GB RAM (B_Standard_B2ms for dev, GP_Standard_D4s_v3 for prod)
+postgresql_storage_mb                    = 32768                    # 32 GB storage (minimum for production)
+postgresql_storage_tier                  = "P10"                    # P10 = 500 IOPS (P4/P6 for dev, P10+ for prod)
+postgresql_backup_retention_days         = 7                        # Backup retention in days
+postgresql_geo_redundant_backup_enabled  = false                    # Enable geo-redundant backups (true for prod)
+postgresql_high_availability_mode        = "Disabled"               # HA mode: Disabled, SameZone, ZoneRedundant
+postgresql_zone                          = "1"                      # Availability zone
+postgresql_location                      = "eastus"                # Optional override region for PostgreSQL Flexible Server (set if primary region restricted)
 
 # Optional shared tags
 # tags = { environment = "dev" owner = "team-devops" }
