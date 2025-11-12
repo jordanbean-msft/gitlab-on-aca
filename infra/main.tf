@@ -64,22 +64,24 @@ module "app_insights" {
 
 ########## Azure Container Registry ##########
 module "acr" {
-  source              = "./modules/acr"
-  name                = "acrgitlab${local.unique_suffix}"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  pull_principal_id   = module.identity.principal_id
-  tags                = local.base_tags
+  source                     = "./modules/acr"
+  name                       = "acrgitlab${local.unique_suffix}"
+  location                   = var.location
+  resource_group_name        = var.resource_group_name
+  pull_principal_id          = module.identity.principal_id
+  log_analytics_workspace_id = module.log_analytics.id
+  tags                       = local.base_tags
 }
 
 ########## Key Vault ##########
 module "key_vault" {
-  source              = "./modules/key-vault"
-  name                = "kv-gitlab-${local.unique_suffix}"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  tenant_id           = data.azurerm_client_config.current.tenant_id
-  tags                = local.base_tags
+  source                     = "./modules/key-vault"
+  name                       = "kv-gitlab-${local.unique_suffix}"
+  location                   = var.location
+  resource_group_name        = var.resource_group_name
+  tenant_id                  = data.azurerm_client_config.current.tenant_id
+  log_analytics_workspace_id = module.log_analytics.id
+  tags                       = local.base_tags
 }
 
 # Grant Terraform identity access to create secrets
@@ -145,12 +147,13 @@ resource "azurerm_role_assignment" "gitlab_app_kv_secrets_user" {
 
 ########## Storage Account + Azure Files Shares ##########
 module "storage_account" {
-  source                   = "./modules/storage-account"
-  name                     = "stgitlab${local.unique_suffix}"
-  location                 = var.location
-  resource_group_name      = var.resource_group_name
-  account_replication_type = var.storage_account_replication_type
-  tags                     = local.base_tags
+  source                     = "./modules/storage-account"
+  name                       = "stgitlab${local.unique_suffix}"
+  location                   = var.location
+  resource_group_name        = var.resource_group_name
+  account_replication_type   = var.storage_account_replication_type
+  log_analytics_workspace_id = module.log_analytics.id
+  tags                       = local.base_tags
 }
 
 # Dynamically create file shares based on tfvars input
@@ -180,6 +183,7 @@ module "postgresql" {
   geo_redundant_backup_enabled     = var.postgresql_geo_redundant_backup_enabled
   high_availability_mode           = var.postgresql_high_availability_mode
   zone                             = var.postgresql_zone
+  log_analytics_workspace_id       = module.log_analytics.id
   tags                             = local.base_tags
 }
 
@@ -263,16 +267,17 @@ module "gitlab_app" {
   location                          = var.location
   environment_id                    = module.container_app_environment.id
   image                             = "gitlab/gitlab-ee:latest"
-  cpu                               = 2.0
-  memory                            = "4Gi"
+  cpu                               = var.gitlab_cpu
+  memory                            = var.gitlab_memory
   min_replicas                      = 1
   max_replicas                      = 1
-  target_port                       = 80
+  target_port                       = 8080
   external_enabled                  = true
   registry_server                   = module.acr.login_server
   registry_identity_id              = module.identity.id
   identity_ids                      = [module.identity.id]
   gitlab_hostname                   = var.gitlab_hostname
+  use_bootstrap_probes              = var.gitlab_use_bootstrap_probes
   key_vault_secret_id_password      = azurerm_key_vault_secret.gitlab_root_password.id
   key_vault_secret_id_token         = azurerm_key_vault_secret.gitlab_runner_token.id
   key_vault_secret_id_db_username   = azurerm_key_vault_secret.postgresql_admin_login.id
@@ -281,6 +286,7 @@ module "gitlab_app" {
   postgresql_database               = module.postgresql.database_name
   storage_account_name              = module.storage_account.name
   storage_account_key               = module.storage_account.primary_access_key
+  log_analytics_workspace_id        = module.log_analytics.id
   file_shares = [
     for share in var.file_shares : {
       name = share.name

@@ -105,6 +105,20 @@ resource "azurerm_network_security_group" "private_endpoints" {
     destination_address_prefix = "*"
     description                = "Required for Azure Files NFS (2049) and SMB (445) access via private endpoint"
   }
+
+  # Allow inbound PostgreSQL traffic to private endpoints subnet
+  security_rule {
+    name                       = "AllowInboundPostgreSQL"
+    priority                   = 120
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "5432"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "*"
+    description                = "Required for PostgreSQL database access via private endpoint"
+  }
 }
 
 # Subnet associations (no creation of subnets)

@@ -1,3 +1,23 @@
+locals {
+  # Probe profile selection locals (bootstrap vs steady-state)
+  # NOTE: Provider limits failure_count_threshold to 1-30. We maximize window by combining a higher interval with max threshold (30) in bootstrap mode.
+  # Effective grace periods (approx):
+  #   Startup: 30 (fail thresh) * 30s interval = ~15 min before restart
+  #   Readiness: 30 * 15s = ~7.5 min continuous failures (traffic withheld only)
+  # Adjust after initial converge by disabling bootstrap mode (var.use_bootstrap_probes = false).
+  startup_initial_delay       = 5
+  startup_interval_seconds    = var.use_bootstrap_probes ? 30 : 10
+  startup_failure_threshold   = var.use_bootstrap_probes ? 30 : 10
+
+  liveness_initial_delay      = 60
+  liveness_interval_seconds   = 30
+  liveness_failure_threshold  = var.use_bootstrap_probes ? 10 : 3
+
+  readiness_initial_delay     = var.use_bootstrap_probes ? 60 : 5
+  readiness_interval_seconds  = var.use_bootstrap_probes ? 15 : 10
+  readiness_failure_threshold = var.use_bootstrap_probes ? 30 : 6
+}
+
 resource "azurerm_container_app" "main" {
   name                         = var.name
   resource_group_name          = var.resource_group_name
@@ -21,6 +41,8 @@ resource "azurerm_container_app" "main" {
     min_replicas = var.min_replicas
     max_replicas = var.max_replicas
 
+    # Probe profile applied using top-level locals
+
     container {
       name   = "gitlab"
       image  = var.image
@@ -28,34 +50,13 @@ resource "azurerm_container_app" "main" {
       memory = var.memory
 
       env {
-        name  = "GITLAB_OMNIBUS_CONFIG"
-        value = <<-EOT
-          external_url 'https://${var.gitlab_hostname}'
-          gitlab_rails['gitlab_shell_ssh_port'] = 2222
-
-          # NFS storage configuration
-          gitlab_rails['shared_path'] = '/var/opt/gitlab/gitlab-rails/shared'
-          gitaly['storage'] = [
-            { 'name' => 'default', 'path' => '/var/opt/gitlab/git-data' }
-          ]
-
-          # External PostgreSQL database
-          postgresql['enable'] = false
-          gitlab_rails['db_adapter'] = 'postgresql'
-          gitlab_rails['db_encoding'] = 'unicode'
-          gitlab_rails['db_host'] = '${var.postgresql_host}'
-          gitlab_rails['db_database'] = '${var.postgresql_database}'
-          gitlab_rails['db_username'] = ENV['GITLAB_DB_USERNAME']
-          gitlab_rails['db_password'] = ENV['GITLAB_DB_PASSWORD']
-          gitlab_rails['db_sslmode'] = 'require'
-
-          # Disable services not needed in containerized environment
-          prometheus_monitoring['enable'] = false
-
-          # Container-optimized settings
-          puma['worker_processes'] = 2
-          sidekiq['max_concurrency'] = 10
-        EOT
+        name = "GITLAB_OMNIBUS_CONFIG"
+        # Load config from external template for readability & reuse
+        value = templatefile("${path.module}/gitlab-omnibus-config.tpl", {
+          gitlab_hostname     = var.gitlab_hostname
+          postgresql_host     = var.postgresql_host
+          postgresql_database = var.postgresql_database
+        })
       }
 
       env {
@@ -86,40 +87,37 @@ resource "azurerm_container_app" "main" {
         }
       }
 
-      # Startup probe: GitLab can take 10+ minutes on first boot
-      # 30 failures × 30 seconds = 15 minutes max startup time
+      # Startup probe (gates liveness & readiness during long first converge)
       startup_probe {
         transport               = "HTTP"
-        path                    = "/-/readiness"
+        path                    = "/-/health"
         port                    = var.target_port
-        initial_delay           = 10
-        interval_seconds        = 30
+        initial_delay           = local.startup_initial_delay
+        interval_seconds        = local.startup_interval_seconds
         timeout                 = 5
-        failure_count_threshold = 30
+        failure_count_threshold = local.startup_failure_threshold
       }
 
-      # Liveness probe: Check if GitLab is still running
-      # Less aggressive than startup - only restart if truly dead
+      # Liveness probe (avoid restarts during bootstrap; tighter later)
       liveness_probe {
         transport               = "HTTP"
         path                    = "/-/liveness"
         port                    = var.target_port
-        initial_delay           = 0
-        interval_seconds        = 30
+        initial_delay           = local.liveness_initial_delay
+        interval_seconds        = local.liveness_interval_seconds
         timeout                 = 5
-        failure_count_threshold = 3
+        failure_count_threshold = local.liveness_failure_threshold
       }
 
-      # Readiness probe: Check if GitLab can accept traffic
-      # Used for load balancing decisions
+      # Readiness probe (traffic gating)
       readiness_probe {
         transport               = "HTTP"
         path                    = "/-/readiness"
         port                    = var.target_port
-        initial_delay           = 5
-        interval_seconds        = 10
+        initial_delay           = local.readiness_initial_delay
+        interval_seconds        = local.readiness_interval_seconds
         timeout                 = 5
-        failure_count_threshold = 3
+        failure_count_threshold = local.readiness_failure_threshold
       }
     }
 
@@ -181,4 +179,17 @@ resource "azurerm_container_app_environment_storage" "shares" {
   share_name                   = "/${var.storage_account_name}/${each.value.name}"
   access_mode                  = "ReadWrite"
   nfs_server_url               = "${var.storage_account_name}.file.core.windows.net"
+}
+
+# Diagnostic Settings for Container App
+# Note: Container Apps only support metrics; logs are sent to Log Analytics via the environment
+resource "azurerm_monitor_diagnostic_setting" "containerapp" {
+  name                       = "diag-${var.name}"
+  target_resource_id         = azurerm_container_app.main.id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
+  metric {
+    category = "AllMetrics"
+    enabled  = true
+  }
 }

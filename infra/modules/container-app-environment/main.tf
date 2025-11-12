@@ -16,3 +16,15 @@ resource "azurerm_container_app_environment" "main" {
 
   tags = var.tags
 }
+
+# Diagnostic Settings for Container App Environment
+resource "azurerm_monitor_diagnostic_setting" "containerappenv" {
+  name                       = "diag-${var.name}"
+  target_resource_id         = azurerm_container_app_environment.main.id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
+  metric {
+    category = "AllMetrics"
+    enabled  = true
+  }
+}

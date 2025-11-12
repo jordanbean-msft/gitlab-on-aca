@@ -135,3 +135,20 @@ variable "file_shares" {
     { name = "gitlab-logs", quota = 100, path = "/var/log/gitlab" }
   ]
 }
+
+# GitLab container sizing (override for bootstrap if desired)
+variable "gitlab_cpu" {
+  description = "vCPU cores allocated to GitLab container (set in terraform.tfvars)"
+  type        = number
+}
+
+variable "gitlab_memory" {
+  description = "Memory allocated to GitLab container (Gi suffix, set in terraform.tfvars)"
+  type        = string
+}
+
+variable "gitlab_use_bootstrap_probes" {
+  description = "If true, apply extended probe timings for first-time Omnibus convergence. Set to false after initial setup for tighter health checks."
+  type        = bool
+  default     = true
+}

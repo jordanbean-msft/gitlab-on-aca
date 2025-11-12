@@ -50,7 +50,18 @@ variable "file_shares" {
     path = string
   }))
 }
+variable "log_analytics_workspace_id" {
+  description = "Log Analytics Workspace ID for diagnostic settings"
+  type        = string
+}
 variable "tags" {
   type    = map(string)
   default = {}
+}
+
+# Toggle for extended bootstrap probe profile (slow first GitLab converge)
+variable "use_bootstrap_probes" {
+  type        = bool
+  default     = true
+  description = "If true, use extended, lenient probe timings to allow initial GitLab Omnibus convergence without premature restarts. Switch to false after first successful initialization for tighter health checks."
 }

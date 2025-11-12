@@ -70,3 +70,41 @@ resource "azurerm_postgresql_flexible_server_configuration" "extensions" {
   server_id = azurerm_postgresql_flexible_server.main.id
   value     = "btree_gist,pg_trgm,plpgsql"
 }
+
+# Diagnostic Settings for PostgreSQL Flexible Server
+resource "azurerm_monitor_diagnostic_setting" "postgresql" {
+  name                       = "diag-${var.name}"
+  target_resource_id         = azurerm_postgresql_flexible_server.main.id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
+  # PostgreSQL Flexible Server Metrics
+  metric {
+    category = "AllMetrics"
+    enabled  = true
+  }
+
+  # PostgreSQL Flexible Server Logs
+  enabled_log {
+    category = "PostgreSQLLogs"
+  }
+
+  enabled_log {
+    category = "PostgreSQLFlexDatabaseXacts"
+  }
+
+  enabled_log {
+    category = "PostgreSQLFlexQueryStoreRuntime"
+  }
+
+  enabled_log {
+    category = "PostgreSQLFlexQueryStoreWaitStats"
+  }
+
+  enabled_log {
+    category = "PostgreSQLFlexSessions"
+  }
+
+  enabled_log {
+    category = "PostgreSQLFlexTableStats"
+  }
+}

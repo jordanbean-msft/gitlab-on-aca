@@ -1,6 +1,10 @@
 variable "name" { type = string }
 variable "location" { type = string }
 variable "resource_group_name" { type = string }
+variable "log_analytics_workspace_id" {
+  description = "Log Analytics Workspace ID for diagnostic settings"
+  type        = string
+}
 variable "tags" {
   type    = map(string)
   default = {}

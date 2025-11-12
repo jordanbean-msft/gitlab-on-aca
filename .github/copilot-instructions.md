@@ -79,6 +79,24 @@ Follow modular pattern with standard module structure:
 - **Configuration**: GitLab Omnibus config via environment variable; reference [GitLab Docker assets](https://gitlab.com/gitlab-org/omnibus-gitlab/-/tree/master/docker/assets)
 - **Secrets**: Stored in Key Vault, referenced in container app via `secret_name` (never plain env values)
 - **Storage Mounts**: Three primary paths: `/etc/gitlab` (config), `/var/opt/gitlab` (data/repos), `/var/log/gitlab` (logs)
+- **Container Port / Probes**: GitLab listens on internal port **8080** (not 80). `target_port` and all health probes must point to 8080. Ingress exposes HTTPS externally while probes remain HTTP against 8080.
+- **Health Probes** (bootstrap mode):
+  - Startup probe path: `/-/health` (GitLab does NOT provide `/-/startup`; using it causes 302 redirects and activation failure)
+  - Readiness probe path: `/-/readiness`
+  - Liveness probe path: `/-/liveness`
+  - Bootstrap thresholds intentionally high (e.g. failure thresholds 30) to allow 10–15 min first‑run initialization.
+- **HTTPS Redirect**: `nginx['redirect_http_to_https'] = false` must remain disabled so Azure Container Apps HTTP health probes receive 200 responses (probes only use HTTP). Re‑enable only if/when Azure supports HTTPS probe endpoints or a sidecar handles probe translation.
+- **Let's Encrypt**: Disabled inside the container: `letsencrypt['enable']=false` and `letsencrypt['auto_renew']=false`. For platform domains use the managed certificate automatically provided, or for custom domains bind a managed/bring‑your‑own cert at the Container App layer (not Omnibus ACME) to avoid ACME HTTP-01 validation failures through the platform ingress.
+- **Omnibus Config Snippet (current essentials)**:
+  ```ruby
+  external_url 'https://${gitlab_hostname}'
+  letsencrypt['enable'] = false
+  letsencrypt['auto_renew'] = false
+  nginx['redirect_http_to_https'] = false  # Required for ACA HTTP probes
+  gitlab_rails['gitlab_shell_ssh_port'] = 2222
+  # (Storage mounts, external DB, Puma/Sidekiq tuning defined in template)
+  ```
+  Do not add custom nginx server blocks for redirects unless probes are accounted for.
 
 ## Azure Developer CLI (azd) Template
 
@@ -187,7 +205,10 @@ Use `local.unique_suffix` for globally unique resource names.
 4. **Provide `outputs.tf`** for resource IDs, names, and endpoints
 5. **Add `tags` variable** to all modules (default = {})
 6. **Use `azurerm_container_app`** resource (not deprecated resources)
-7. **Enable diagnostics** on all supported resources to Log Analytics
+7. **ALWAYS enable diagnostic settings (`azurerm_monitor_diagnostic_setting`)** on all supported Azure resources, sending logs and metrics to Log Analytics workspace
+   - Include all available log categories and AllMetrics
+   - Pass `log_analytics_workspace_id` as a module variable
+   - Name diagnostic setting as `diag-{resource-name}`
 
 ### When Using azd
 
@@ -220,6 +241,7 @@ Use `local.unique_suffix` for globally unique resource names.
 - Use private endpoints for all PaaS services
 - Implement NSGs with least-privilege rules
 - Enable Azure Monitor and Application Insights
+- **Always configure diagnostic settings for all Azure services** - send logs and metrics to Log Analytics workspace
 
 ### Performance
 
@@ -270,8 +292,20 @@ nslookup storageaccount.file.core.windows.net  # Expect private IP from auto-man
 1. **Container App not starting**: Check volume mount configuration
 2. **Storage mount failing**: Verify storage account has public access disabled and private endpoint is deployed
 3. **Private endpoint DNS not resolving**: Verify DINE policy created DNS zone groups automatically (check `private_dns_zone_group` in portal)
-4. **GitLab initialization slow**: Normal on first start (can take 5-10 min)
+4. **GitLab initialization slow**: Normal on first start (can take 10–15 min; background migrations, asset compilation)
 5. **Key Vault access denied**: Ensure `azure_principal_id` is set in azd environment and RBAC role assignments have propagated (60s wait configured)
+6. **ActivationFailed with 301/302 or 502 probe logs**: Usually caused by wrong probe path (`/-/startup`), HTTPS redirect enabled, or probes hitting port 80 instead of 8080.
+7. **Persistent 503 externally but probes pass**: Application may still be converging internal services (Sidekiq, migrations). Confirm readiness with internal `curl http://localhost:8080/-/readiness` via `az containerapp exec`.
+
+### Probe Troubleshooting Quick Reference
+
+| Symptom                                       | Likely Cause                             | Fix                                               |
+| --------------------------------------------- | ---------------------------------------- | ------------------------------------------------- |
+| Startup probe 301/302 to `/users/sign_in`     | Using `/-/startup` path                  | Change to `/-/health`                             |
+| Readiness 502                                 | App not yet ready or wrong port (80)     | Ensure port 8080 + wait for initialization        |
+| All probes fail after enabling HTTPS redirect | `nginx['redirect_http_to_https'] = true` | Set `nginx['redirect_http_to_https'] = false`     |
+| ACME/Let’s Encrypt errors in logs             | Built‑in LE enabled on platform domain   | Keep LE disabled; use platform/custom domain cert |
+| External 503 while probes OK                  | Internal services still warming up       | Allow bootstrap window; check Sidekiq/Puma logs   |
 
 ## Documentation Structure
 
@@ -324,3 +358,6 @@ When assisting:
 - **Workload Profile**: Name <16 chars; type must be valid SKU (D4/D8/D16/D32/E4/E8/E16/E32/Consumption)
 - **RBAC**: `AZURE_PRINCIPAL_ID` always provided via azd environment for Key Vault Administrator role
 - **NFS Storage**: Use `nfs_server_url`, set `enabled_protocol = "NFS"` on shares, omit `access_key`
+- **Container Port & Probes**: `target_port = 8080`; probes (`/-/health`, `/-/readiness`, `/-/liveness`) must reference 8080. Do NOT revert to 80.
+- **HTTPS Redirect Disabled for Probes**: Keep `nginx['redirect_http_to_https']=false` until probe protocol flexibility is available.
+- **ACME Disabled**: Rely on Container Apps managed or custom certs; do not re‑enable Omnibus Let’s Encrypt without redesigning probe & ingress strategy.

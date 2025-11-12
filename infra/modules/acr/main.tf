@@ -13,3 +13,23 @@ resource "azurerm_role_assignment" "acr_pull" {
   role_definition_name = "AcrPull"
   principal_id         = var.pull_principal_id
 }
+
+# Diagnostic Settings for Azure Container Registry
+resource "azurerm_monitor_diagnostic_setting" "acr" {
+  name                       = "diag-${var.name}"
+  target_resource_id         = azurerm_container_registry.main.id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
+  metric {
+    category = "AllMetrics"
+    enabled  = true
+  }
+
+  enabled_log {
+    category = "ContainerRegistryRepositoryEvents"
+  }
+
+  enabled_log {
+    category = "ContainerRegistryLoginEvents"
+  }
+}

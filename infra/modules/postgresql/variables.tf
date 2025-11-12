@@ -74,3 +74,8 @@ variable "zone" {
   description = "Availability zone (still valid when using public access)"
   type        = string
 }
+
+variable "log_analytics_workspace_id" {
+  description = "Log Analytics Workspace ID for diagnostic settings"
+  type        = string
+}

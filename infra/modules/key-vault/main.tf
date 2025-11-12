@@ -10,3 +10,23 @@ resource "azurerm_key_vault" "main" {
   public_network_access_enabled = false
   tags                          = var.tags
 }
+
+# Diagnostic Settings for Key Vault
+resource "azurerm_monitor_diagnostic_setting" "keyvault" {
+  name                       = "diag-${var.name}"
+  target_resource_id         = azurerm_key_vault.main.id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
+  metric {
+    category = "AllMetrics"
+    enabled  = true
+  }
+
+  enabled_log {
+    category = "AuditEvent"
+  }
+
+  enabled_log {
+    category = "AzurePolicyEvaluationDetails"
+  }
+}
