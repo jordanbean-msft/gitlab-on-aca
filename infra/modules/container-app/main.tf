@@ -5,17 +5,20 @@ locals {
   #   Startup: 30 (fail thresh) * 30s interval = ~15 min before restart
   #   Readiness: 30 * 15s = ~7.5 min continuous failures (traffic withheld only)
   # Adjust after initial converge by disabling bootstrap mode (var.use_bootstrap_probes = false).
-  startup_initial_delay       = 5
-  startup_interval_seconds    = var.use_bootstrap_probes ? 30 : 10
-  startup_failure_threshold   = var.use_bootstrap_probes ? 30 : 10
+  # Extend startup grace: GitLab Omnibus can exceed 10 minutes on first boot
+  startup_initial_delay       = 30
+  startup_interval_seconds    = var.use_bootstrap_probes ? 45 : 15
+  startup_failure_threshold   = var.use_bootstrap_probes ? 30 : 12
 
-  liveness_initial_delay      = 60
-  liveness_interval_seconds   = 30
-  liveness_failure_threshold  = var.use_bootstrap_probes ? 10 : 3
+  # Delay liveness to avoid premature restarts while Puma/Workhorse settle
+  liveness_initial_delay      = 60  # Max allowed by Azure
+  liveness_interval_seconds   = 45
+  liveness_failure_threshold  = var.use_bootstrap_probes ? 20 : 5
 
-  readiness_initial_delay     = var.use_bootstrap_probes ? 60 : 5
-  readiness_interval_seconds  = var.use_bootstrap_probes ? 15 : 10
-  readiness_failure_threshold = var.use_bootstrap_probes ? 30 : 6
+  # Allow readiness to wait for DB migrations & asset compilation
+  readiness_initial_delay     = var.use_bootstrap_probes ? 60 : 20
+  readiness_interval_seconds  = var.use_bootstrap_probes ? 30 : 15
+  readiness_failure_threshold = var.use_bootstrap_probes ? 30 : 8
 }
 
 resource "azurerm_container_app" "main" {

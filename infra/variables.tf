@@ -98,7 +98,6 @@ variable "storage_account_replication_type" {
 variable "workload_profile_type" {
   description = "Container Apps Environment workload profile type (Consumption, D4, D8, D16, D32, E4, E8, E16, E32)"
   type        = string
-  default     = "D4"
 
   validation {
     condition     = contains(["Consumption", "D4", "D8", "D16", "D32", "E4", "E8", "E16", "E32"], var.workload_profile_type)
@@ -151,4 +150,18 @@ variable "gitlab_use_bootstrap_probes" {
   description = "If true, apply extended probe timings for first-time Omnibus convergence. Set to false after initial setup for tighter health checks."
   type        = bool
   default     = true
+}
+
+# GitLab image repository (imported into ACR). Defaults to official EE image.
+variable "gitlab_image_repository" {
+  description = "Source repository (on docker.io) and target path inside ACR, e.g. gitlab/gitlab-ee"
+  type        = string
+  default     = "gitlab/gitlab-ee"
+}
+
+# GitLab image tag to import & deploy.
+variable "gitlab_image_tag" {
+  description = "GitLab image tag (e.g. latest or a version like 17.6.1-ee)."
+  type        = string
+  default     = "latest"
 }

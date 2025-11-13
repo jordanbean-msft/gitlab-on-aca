@@ -266,7 +266,8 @@ module "gitlab_app" {
   resource_group_name               = var.resource_group_name
   location                          = var.location
   environment_id                    = module.container_app_environment.id
-  image                             = "gitlab/gitlab-ee:latest"
+  # Use private ACR hosted copy of GitLab image imported via null_resource below
+  image                             = "${module.acr.login_server}/${var.gitlab_image_repository}:${var.gitlab_image_tag}"
   cpu                               = var.gitlab_cpu
   memory                            = var.gitlab_memory
   min_replicas                      = 1
@@ -302,6 +303,27 @@ module "gitlab_app" {
     module.private_endpoint_acr,
     module.private_endpoint_postgresql,
     module.postgresql,
-    azurerm_role_assignment.gitlab_app_kv_secrets_user
+    azurerm_role_assignment.gitlab_app_kv_secrets_user,
+    azapi_resource_action.acr_import_gitlab
   ]
+}
+
+# Import GitLab image from Docker Hub into private ACR using Azure ARM action (idempotent force mode).
+resource "azapi_resource_action" "acr_import_gitlab" {
+  type        = "Microsoft.ContainerRegistry/registries@2023-07-01"
+  resource_id = module.acr.id
+  action      = "importImage"
+  method      = "POST"
+  body = {
+    source = {
+      registryUri = "registry.hub.docker.com"
+      sourceImage = "${var.gitlab_image_repository}:${var.gitlab_image_tag}"
+    }
+    targetTags = [
+      "${var.gitlab_image_repository}:${var.gitlab_image_tag}"
+    ]
+    mode = "Force"
+  }
+  response_export_values = ["status"]
+  depends_on             = [module.acr]
 }

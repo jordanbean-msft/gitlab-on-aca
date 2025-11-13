@@ -17,6 +17,10 @@ gitlab_hostname              = "gitlab.contoso.com"
 gitlab_root_password         = "CHANGE-ME"
 gitlab_runner_token          = "RUNNER-TOKEN"
 
+# Pinned GitLab image (latest stable patch as of Nov 2025)
+gitlab_image_repository      = "gitlab/gitlab-ee"
+gitlab_image_tag             = "18.5.2-ee"
+
 # PostgreSQL configuration
 postgresql_admin_password                = "CHANGE-ME-DB-PASSWORD"  # PostgreSQL admin password (remember to change in production)
 postgresql_version                       = "16"                      # PostgreSQL version (16 or 17)
